@@ -19,7 +19,6 @@ import random
 import math
 from utils import *
 from cfg import parse_cfg
-from region_loss import RegionLoss
 from darknet import Darknet
 from models.tiny_yolo import TinyYoloNet
 
@@ -67,8 +66,8 @@ if use_cuda:
     os.environ['CUDA_VISIBLE_DEVICES'] = gpus
     torch.cuda.manual_seed(seed)
 
-model       = TinyYoloNet() #Darknet(cfgfile)
-region_loss = model.loss
+model       = Darknet(cfgfile)
+#model       = TinyYoloNet()
 
 model.load_weights(weightfile)
 model.print_network()
@@ -124,9 +123,8 @@ def train(epoch):
         t4 = time.time()
         optimizer.zero_grad()
         t5 = time.time()
-        output = model(data)
+        loss = model(data, target).sum()
         t6 = time.time()
-        loss = region_loss(output, target)
         t7 = time.time()
         loss.backward()
         t8 = time.time()

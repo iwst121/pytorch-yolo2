@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from region_loss import RegionLoss
+from roi_pool import RoIPool
 from cfg import *
 
 class MaxPoolStride1(nn.Module):
@@ -74,9 +75,8 @@ class Darknet(nn.Module):
         self.header = torch.IntTensor([0,0,0,0])
         self.seen = 0
 
-    def forward(self, x):
+    def forward(self, x, target):
         ind = -2
-        self.loss = None
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
@@ -112,14 +112,14 @@ class Darknet(nn.Module):
                     x = F.relu(x, inplace=True)
                 outputs[ind] = x
             elif block['type'] == 'region':
-                continue
-                if self.loss:
-                    self.loss = self.loss + self.models[ind](x)
-                else:
-                    self.loss = self.models[ind](x)
-                outputs[ind] = None
+                x = self.models[ind](x, target)
+                outputs[ind] = x
             elif block['type'] == 'cost':
                 continue
+            elif block['type'] == 'roipool':
+                assert(target != None)
+                x = self.models[ind](x, target)
+                outputs[ind] = x
             else:
                 print('unknown type %s' % (block['type']))
         return x
@@ -190,6 +190,12 @@ class Darknet(nn.Module):
                 prev_filters = stride * stride * prev_filters
                 out_filters.append(prev_filters)
                 models.append(Reorg(stride))
+            elif block['type'] == 'roipool':
+                pool_width = int(block['pool_width'])
+                pool_height = int(block['pool_height'])
+                spatial_scale = int(block['spatial_scale'])
+                out_filters.append(prev_filters)
+                models.append(RoIPool(pool_width, pool_height, spatial_scale))
             elif block['type'] == 'route':
                 layers = block['layers'].split(',')
                 ind = len(models)
@@ -263,6 +269,8 @@ class Darknet(nn.Module):
                 pass
             elif block['type'] == 'cost':
                 pass
+            elif block['type'] == 'roipool':
+                pass
             else:
                 print('unknown type %s' % (block['type']))
 
@@ -301,6 +309,8 @@ class Darknet(nn.Module):
             elif block['type'] == 'softmax':
                 pass
             elif block['type'] == 'cost':
+                pass
+            elif block['type'] == 'roipool':
                 pass
             else:
                 print('unknown type %s' % (block['type']))
