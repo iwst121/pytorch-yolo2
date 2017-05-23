@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from PIL import Image, ImageDraw
 import sys
-sys.path.append('..')
 from collections import OrderedDict
 from utils import do_detect, plot_boxes, load_class_names
 sys.path.append('/home/chenchao/caffe-master/python')
@@ -25,8 +24,8 @@ class Eltwise(nn.Module):
         self.operation = operation
 
     def forward(self, input_feats):
-        if isinstance(input_feats, list):
-            print "error : The input of Eltwise layer must be a list"
+        if isinstance(input_feats, tuple):
+            print "error : The input of Eltwise layer must be a tuple"
         for i, feat in enumerate(input_feats):
             if x is None:
                 x = feat
@@ -45,7 +44,7 @@ class Concat(nn.Module):
 
     def forward(self, input_feats):
         if not isinstance(input_feats, tuple):
-            print 'The input of Concat layer must be a list'
+            print 'The input of Concat layer must be a tuple'
         self.length = len(input_feats)
         x = torch.cat(input_feats, 1)
         return x
@@ -226,7 +225,7 @@ class CaffeNet(nn.Module):
                     group = int(layer['convolution_param']['group'])
                 if layer['convolution_param'].has_key('bias_term'):
                     bias = True if layer['convolution_param']\
-                            ['bias_term'].lower() == 'False' else False 
+                            ['bias_term'].lower() == 'false' else False 
                 if layer['convolution_param'].has_key('dilation'):
                     dilation = int(layer['convolution_param']['dilation'])
                 num_output = int(layer['convolution_param']['num_output'])
@@ -259,17 +258,12 @@ class CaffeNet(nn.Module):
             elif ltype == 'Eltwise':
                 top_dim[tops[0]] = top_dim[bottoms[0]]
                 models[name] = Eltwise('+')
-                # Todo
-                pass
             elif ltype == 'Concat':
                 top_dim[tops[0]] = 0
                 for i, x in enumerate(bottoms):
                     top_dim[tops[0]] += top_dim[x]
                 models[name] = Concat()
-                # Todo 
-                pass
             elif ltype == 'Dropout':
-                # todo
                 if layer['top'][0] == layer['bottom'][0]:
                     inplace = True
                 else: 
